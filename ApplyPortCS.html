@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Apply Port — Coming Soon</title>
+  <style>
+    /* styles kept compact — same visuals as before */
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{height:100vh;display:flex;justify-content:center;align-items:center;flex-direction:column;background:linear-gradient(-45deg,#1b2735,#090a0f,#ff0080,#00ffe7);background-size:400% 400%;animation:gradientShift 12s ease infinite;font-family:"Segoe UI",sans-serif;color:#fff;overflow:hidden;text-align:center;padding:20px}
+    @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    header{position:absolute;top:20px;font-size:1.8rem;font-weight:bold;text-shadow:0 0 12px #ff4081,0 0 24px #ff00aa;letter-spacing:1px}
+    h1{font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#fff,#ff4081,#00ffe7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200% auto;animation:shimmer 4s linear infinite}
+    @keyframes shimmer{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+    p{font-size:1.1rem;margin-bottom:20px;color:#e0e0e0}
+    form{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    input{padding:12px 15px;border-radius:25px;border:none;outline:none;width:250px;font-size:1rem}
+    input.valid{border:2px solid #00e676} input.invalid{border:2px solid #ff1744}
+    button{padding:12px 20px;border:none;border-radius:25px;background:linear-gradient(45deg,#ff4081,#ff00ff);color:#fff;font-size:1rem;cursor:pointer;transition:.3s;box-shadow:0 0 12px #ff4081,0 0 24px #ff00ff}
+    button:hover{transform:scale(1.08);background:linear-gradient(45deg,#e91e63,#ff00aa)}
+    #emailMessage{width:100%;font-size:.9rem;margin-top:6px;min-height:1.1em}
+    #message{margin-top:15px;font-size:1rem;min-height:1.2em}
+    .circle{position:absolute;border-radius:50%;background:rgba(255,255,255,0.2);animation:float 10s infinite ease-in-out}
+    @keyframes float{0%{transform:translateY(0);opacity:.5}50%{transform:translateY(-80px);opacity:1}100%{transform:translateY(0);opacity:.5}}
+  </style>
+</head>
+<body>
+  <header>🚀 Apply Port</header>
+  <h1>We’re Launching Soon!</h1>
+  <p>Be the first to know when Apply Port goes live. Enter your email below:</p>
+
+  <form id="emailForm" novalidate>
+    <input type="email" id="emailInput" name="email" placeholder="Enter your email" required autocomplete="off" inputmode="email" aria-describedby="emailMessage" />
+    <button type="submit" id="submitBtn">Notify Me</button>
+    <div id="emailMessage" aria-live="polite"></div>
+  </form>
+
+  <div id="message" aria-live="polite"></div>
+
+  <!-- floating circles -->
+  <div class="circle" style="width:30px;height:30px;top:70%;left:20%;animation-delay:0s"></div>
+  <div class="circle" style="width:20px;height:20px;top:50%;left:70%;animation-delay:2s"></div>
+  <div class="circle" style="width:25px;height:25px;top:30%;left:40%;animation-delay:4s"></div>
+  <div class="circle" style="width:15px;height:15px;top:20%;left:80%;animation-delay:1s"></div>
+  <div class="circle" style="width:35px;height:35px;top:60%;left:10%;animation-delay:3s"></div>
+  <div class="circle" style="width:22px;height:22px;top:40%;left:90%;animation-delay:5s"></div>
+
+  <script>
+    // ----------------- CONFIG -----------------
+    const endpoint = "https://script.google.com/macros/s/AKfycbxWcQRtPcHOe0TDOiAnnkYhVx6nOHj0fsTnmEPf2ZI8OJTWIhnSlKRdjhXQvw3QUgHb/exec"; // <-- paste the Web App URL you get after Deploy
+    // ------------------------------------------
+
+    const emailInput = document.getElementById("emailInput");
+    const emailMessage = document.getElementById("emailMessage");
+    const form = document.getElementById("emailForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const messageBox = document.getElementById("message");
+
+    const emailRegex = /^(?=.{7,50}$)(?!\d+$)(?!_+$)(?!.*\.\.)[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*@[A-Za-z]+(?:\.[A-Za-z]+)+$/;
+
+    emailInput.addEventListener("input", () => {
+      const ok = emailRegex.test(emailInput.value.trim());
+      emailInput.classList.toggle("valid", ok);
+      emailInput.classList.toggle("invalid", !ok && emailInput.value.length > 0);
+      emailMessage.textContent = ok ? "✅ Valid Mail" : (emailInput.value.length ? "❌ Please enter a valid email" : "");
+      emailMessage.style.color = ok ? "green" : "red";
+    });
+
+    // Try POST (fetch). If fetch fails (CORS/network), fallback to JSONP GET.
+    async function submitEmailWithFallback(email) {
+      const body = "email=" + encodeURIComponent(email);
+
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body
+        });
+
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch (_) { data = null; }
+
+        if (!res.ok) throw new Error("HTTP " + res.status + " - " + text);
+        return data || { result: "success", raw: text };
+      } catch (err) {
+        // fallback to JSONP (script tag) — works around CORS issues on some iOS Safari setups
+        return jsonpSubmit(email);
+      }
+    }
+
+    function jsonpSubmit(email, timeoutMs = 10000) {
+      return new Promise((resolve, reject) => {
+        const cbName = "jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        window[cbName] = function(data) { cleanup(); resolve(data); };
+
+        const script = document.createElement("script");
+        script.src = endpoint + "?email=" + encodeURIComponent(email) + "&callback=" + cbName;
+        script.async = true;
+        script.onerror = function() { cleanup(); reject(new Error("JSONP load error")); };
+        document.body.appendChild(script);
+
+        const timer = setTimeout(() => { cleanup(); reject(new Error("JSONP timeout")); }, timeoutMs);
+
+        function cleanup() {
+          clearTimeout(timer);
+          try { document.body.removeChild(script); } catch (e) {}
+          try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+        }
+      });
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+
+      if (!emailRegex.test(email)) {
+        emailInput.classList.add("invalid");
+        emailMessage.textContent = "❌ Please enter a valid email";
+        emailMessage.style.color = "red";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      messageBox.textContent = "⏳ Submitting...";
+      messageBox.style.color = "yellow";
+
+      try {
+        const resp = await submitEmailWithFallback(email);
+        if (!resp) throw new Error("No response");
+
+        if (resp.result === "success") {
+          messageBox.textContent = "✅ Successfully submitted: " + resp.email;
+          messageBox.style.color = "lightgreen";
+          form.reset();
+          emailInput.classList.remove("valid","invalid");
+          emailMessage.textContent = "";
+        } else if (resp.result === "duplicate") {
+          messageBox.textContent = "⚠️ Already registered: " + resp.email;
+          messageBox.style.color = "orange";
+        } else {
+          messageBox.textContent = "❌ " + (resp.message || JSON.stringify(resp));
+          messageBox.style.color = "red";
+        }
+      } catch (err) {
+        messageBox.textContent = "❌ Error: " + (err.message || err);
+        messageBox.style.color = "red";
+        console.error(err);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
